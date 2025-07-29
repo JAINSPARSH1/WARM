@@ -1,0 +1,5 @@
+pytest
+pytest-mock
+responses        # for mocking HTTP calls
+python-dotenv    # if you’ll test env var loading
+

@@ -1,0 +1,11 @@
+requests
+beautifulsoup4
+ssdeep
+mmh3
+python-whois
+tldextract
+rich
+dnspython
+cryptography
+selenium
+webdriver-manager

@@ -1,0 +1,34 @@
+# Byte‐compiled / cache
+__pycache__/
+*.py[cod]
+*/__pycache__/
+
+# Virtual environment
+.venv/
+venv/
+env/
+
+# IDE/editor
+*.swp
+*.pyproj
+*.sublime-project
+*.sublime-workspace
+.vscode/
+.idea/
+
+# Data & logs
+data/cache/
+data/reports/
+logs/
+*.json
+
+# Distribution / build
+build/
+dist/
+*.egg-info/
+*.whl
+
+# OS files
+.DS_Store
+Thumbs.db
+

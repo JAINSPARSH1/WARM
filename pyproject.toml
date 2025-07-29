@@ -1,0 +1,38 @@
+[project]
+name = "warm-risk-mapper"
+version = "0.1.0"
+description = "CLI toolkit for fingerprinting websites & computing explainable risk scores"
+authors = [{name="Sparsh M. Jain", email="you@example.com"}]
+license = {text="MIT"}
+readme = "README.md"
+requires-python = ">=3.9"
+dependencies = [
+  "requests",
+  "beautifulsoup4",
+  "ssdeep",
+  "mmh3",
+  "dnspython",
+  "python-whois",
+  "tldextract",
+  "selenium",
+  "rich",
+  # add others from requirements.txt
+]
+
+[project.scripts]
+warm = "warm.main:main"
+
+[build-system]
+requires = ["setuptools>=61.0","wheel"]
+build-backend = "setuptools.build_meta"
+
+[tool.isort]
+profile = "black"
+
+[tool.black]
+line-length = 88
+
+[tool.flake8]
+max-line-length = 88
+extend-ignore = ["E203","W503"]
+
