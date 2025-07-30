@@ -1,163 +1,136 @@
-# WARM: Web Artefact-based Risk Mapper  
-[![CI](https://github.com/JAINSPARSH1/WARM/actions/workflows/ci.yml/badge.svg)](https://github.com/JAINSPARSH1/WARM/actions) [![Coverage](https://img.shields.io/codecov/c/github/JAINSPARSH1/WARM)](https://codecov.io/gh/JAINSPARSH1/WARM)  
+# WARM: Web Artefact-based Risk Mapper
 
-> **Status:** 🚧 Ongoing Masters-level research project — under active development  
+**Status:** 🚧 Ongoing Master’s-level research project
 
-**WARM** is a Python CLI toolkit that “actively fingerprints” any webpage across multiple layers, enriches those artefacts with threat-intelligence feeds, and distills everything into a **single composite hash** (“site signature”). That signature powers both ultra-fast signature lookup and supervised ML classification, yielding a transparent, explainable risk score (0–100%) to catch zero-day phishing and malicious sites before traditional blocklists update.
+WARM is a Python CLI toolkit designed to detect and explain malicious or phishing web pages by:
 
----
+1. **Actively fingerprinting** a target URL’s multi-modal artefacts (content, structure, transport, infrastructure).  
+2. **Enriching** those artefacts with open-source threat-intelligence (VirusTotal, URLScan.io, Shodan, OTX, IPInfo).  
+3. **Compressing** everything into a **single composite SHA-256 hash** (“site signature”).  
+4. **Detecting** via ultra-fast SQLite signature lookup or a supervised ML model (Random Forest / XGBoost).  
+5. **Explaining** each decision with per-feature weight breakdown and detailed JSON logs.
 
-## 📖 Table of Contents  
-1. [Motivation](#motivation)  
-2. [Project Vision & Objectives](#project-vision--objectives)  
-3. [Key Features](#key-features)  
-4. [System Architecture](#system-architecture)  
-5. [Composite Hashing & ML](#composite-hashing--ml)  
-6. [Getting Started](#getting-started)  
-7. [Usage Examples](#usage-examples)  
-8. [Configuration](#configuration)  
-9. [Project Structure](#project-structure)  
-10. [Development & Testing](#development--testing)  
-11. [Roadmap & Future Work](#roadmap--future-work)  
-12. [Acknowledgements](#acknowledgements)  
-13. [License](#license)  
 
----
 
-## 🎯 Motivation  
-- **Phishing is rising:** Over one-third of breaches in 2024 began with phishing campaigns spinning up disposable domains and reusing “kits.”  
-- **Blocklists lag:** Static URL reputation services can’t keep up with rapid domain churn.  
-- **Opaque ML:** High-accuracy black-box models provide little insight, hindering SOC response.  
+## Background & Motivation
 
-**WARM** addresses these gaps by combining live, multi-modal artefact extraction with threat-intel enrichment and an explainable scoring engine.
+- Phishing campaigns spin up disposable domains daily; static blocklists lag behind new threats.  
+- Black-box ML offers good accuracy but little insight—analysts need to know **why** a site is flagged.  
+- WARM combines rule-based mismatches and ML predictions in an explainable pipeline that fits SOC workflows.
 
----
 
-## 🚀 Project Vision & Objectives  
-1. **Interactive Fetching:** Fetch via HTTP(S), fallback to headless browser (Playwright) for dynamic content.  
-2. **Artefact Extraction:** Capture content, structure, resource, transport, and infra signals.  
-3. **Threat-Intel Enrichment:** Augment artefacts with VirusTotal, URLScan.io, Shodan, OTX, IPInfo.  
-4. **Composite Hashing:** Normalize & concatenate all artefacts + TI flags → SHA-256 “site signature.”  
-5. **Dual Detection Modes:**  
-   - **Lookup:** O(1) SQLite lookup of known benign/phish signatures  
-   - **ML Prediction:** Random Forest/XGBoost model on composite signatures  
-6. **Explainable Scoring:** Weighted mismatches + model confidence → final risk score with per-feature breakdown.
 
----
+## Key Features
 
-## ✨ Key Features  
-- **Content & Structure:** HTML SHA-256 & ssdeep, DOM metrics, form counts  
-- **Resources & Visuals:** CSS/JS count, favicon mmh3 + URL, optional screenshot hash  
-- **Transport & Infra:** TLS Cert details & JARM, DNS TTL, WHOIS age, ASN  
-- **Threat-Intel Flags:** VirusTotal verdicts, URLScan tech stack, Shodan banners, OTX pulses  
-- **Composite Hashing:** Single canonical fingerprint for fast lookup & ML  
-- **Explainability:** Per-feature weight breakdown in CLI output & JSON logs  
-- **Extensible Outputs:** Rich CLI table, JSON report, single-row CSV for dataset building  
+- **Fetcher**: HTTP(S) requests + headless-browser fallback for dynamic sites.  
+- **Extractor**:  
+  - HTML SHA-256 and ssdeep fuzzy-hash  
+  - DOM metrics (forms, inputs)  
+  - Resource counts (CSS/JS/images) and favicon mmh3 hash  
+- **TLS/WHOIS Module**:  
+  - Certificate issuer, age, JARM fingerprint  
+  - DNS A-record + TTL, WHOIS domain age, ASN lookup  
+- **Threat-Intel Enrichment (optional)**:  
+  VirusTotal URL verdicts, URLScan.io scan data, Shodan banners, OTX pulses, IPInfo metadata  
+- **Composite Hashing**: Normalize all artefact values + TI flags → join with `|` → SHA-256 signature  
+- **Detection Modes**:  
+  - **Lookup**: O(1) SQLite match against known benign/phish signatures  
+  - **ML Prediction**: Supervised model on signature vectors for unknown sites  
+- **Explainable Scoring**: Weighted sum of mismatches + model confidence → 0–100% risk score  
+- **Outputs**: CLI table, JSON report, CSV row for dataset building
 
----
 
-## 🏗 System Architecture  
 
-```mermaid
-flowchart LR
-  subgraph Offline_Training["Offline Training"]
-    A[Labelled URLs] --> B[Extract & Combine]
-    B --> C[SQLite Signature Store]
-    C --> D[Train ML Model]
-    D --> E[Persist Model]
-  end
+## System Architecture
 
-  subgraph Online_Detection["Online Detection"]
-    F[User Input: URL] --> G[Fetcher]
-    G --> H[Extractor]
-    H --> I[TI Enrichment]
-    I --> J[Composite Hashing]
-    J --> K{Signature in Store?}
-    K -->|Yes| L[Lookup Verdict]
-    K -->|No| M[ML Prediction]
-    L --> N[Explainable Scoring]
-    M --> N
-    N --> O[CLI / JSON / CSV Output]
-  end
 
-  E -.-> M
-🔐 Composite Hashing & ML Integration
-Normalization: Convert each artefact & TI flag to key=value strings in fixed order.
 
-Concatenation: Join with | delimiter to form canonical fingerprint.
 
-Hashing: Compute SHA-256 → 64-hex “site signature.”
+           ┌──────────────────┐
+Offline: │ Labelled URLs │
+Training └───┬────────────┬──┘
+│ ↓
+Extract & Combine Train ML Model
+↓ ↓
+SQLite Signature Store ─┘
+│
+┌────────────────┴────────────────┐
+│ Online Detection (per URL) │
+└──────────────┬─────────────────┘
+↓
+Fetcher
+↓
+Extractor
+↓
+Threat-Intel Enrichment
+↓
+Composite Hashing
+↓
+┌───────────┴───────────┐
+│ Lookup? │ ML Model │
+│ (SQLite) │ Prediction │
+└────┬──────┴────────────┘
+↓
+Explainable Scoring & Output
 
-Lookup Mode: Instant SQLite lookup if signature known.
 
-ML Mode: Feed signature vector into pre-trained Random Forest/XGBoost for classification.
 
-Explainability: Map model confidence & weighted mismatches back to original features.
 
-⚙️ Getting Started
-Prerequisites
-Python ≥3.9
 
-(Optional) Environment variables:
 
-bash
-Copy
-Edit
-export URLSCAN_API_KEY="<your_key>"
-export VIRUSTOTAL_API_KEY="<your_key>"
-Installation
-bash
-Copy
-Edit
+
+## Installation
+
+```
 git clone https://github.com/JAINSPARSH1/WARM.git
 cd WARM
-python3 -m venv .venv && source .venv/bin/activate
-pip install -r requirements.txt -r requirements-dev.txt
+python3 -m venv .venv
+source .venv/bin/activate
+pip install -r requirements.txt
 pip install -e .
-🖥 Usage Examples
-Basic Signature Lookup
-bash
-Copy
-Edit
-warm -b https://example.com -t https://suspicious.com
-With Threat-Intel Enrichment & JSON Output
-bash
-Copy
-Edit
+Optional (Threat-Intel APIs)
+
+
+
+export URLSCAN_API_KEY="…"
+export VIRUSTOTAL_API_KEY="…"
+Usage
+
+
+
+# Basic signature lookup + explainable risk score
 warm \
-  --baseline https://bank.com \
-  --target  https://phishingsite.com \
-  --urlscan-key $URLSCAN_API_KEY \
-  --output report.json
-🛠 Configuration
-All tunables in src/warm/config.py:
+  --baseline https://example.com \
+  --target  https://suspicious-site.test \
+  [--urlscan-key $URLSCAN_API_KEY] \
+  [--output report.json]
+--baseline (or -b): Known-good URL
 
-python
-Copy
-Edit
-METRIC_WEIGHTS = {
-  "favicon_hash": 0.20,
-  "tls_jarm":     0.15,
-  "html_ssdeep":  0.10,
-  # ...
-}
-THRESHOLDS = {
-  "benign_max":     25,
-  "suspicious_max": 60,
-  "malicious_min":  61,
-}
-Override via edits or future CLI flags.
+--target (or -t): URL under analysis
 
-📂 Project Structure
-bash
-Copy
-Edit
+--urlscan-key (or -k): (Optional) URLScan.io API key
+
+--output (or -o): Path to write JSON summary (default: stdout)
+
+Configuration
+All tunable parameters live in src/warm/config.py:
+
+METRIC_WEIGHTS: per-feature mismatch weights (e.g. {"favicon_hash":0.2, …})
+
+THRESHOLDS: risk thresholds (benign_max, suspicious_max, malicious_min)
+
+TIMEOUTS, HEADERS, API KEYS
+
+Adjust these to calibrate scoring and model behavior.
+
+Project Structure
+arduino
+
+
 WARM/
-├── .github/            # CI workflows
-├── data/               # cache & example logs
 ├── src/warm/
-│   ├── main.py         # CLI entrypoint
-│   ├── config.py       # global settings & weights
+│   ├── main.py      # CLI entry point
+│   ├── config.py    # global settings & weights
 │   └── core/
 │       ├── fetcher.py
 │       ├── extractor.py
@@ -165,38 +138,42 @@ WARM/
 │       ├── urlscan.py
 │       ├── comparator.py
 │       └── scorer.py
-├── tests/              # pytest modules
-├── CHANGELOG.md
-├── README.md
+├── data/            # cache & example JSON logs
+├── tests/           # pytest suites per component
 ├── requirements.txt
-├── requirements-dev.txt
-├── setup.cfg
-├── pyproject.toml
+├── setup.cfg        # entry point & packaging metadata
+├── pyproject.toml   # project metadata & build config
 └── CHANGELOG.md
-✅ Development & Testing
-pytest for unit tests: fetcher, extractor, TLS/WHOIS, comparator, scorer, analyzer, CLI
+Development & Testing
 
-Black, isort, flake8 for code style
 
-GitHub Actions CI across Python 3.9–3.11
 
-🛣 Roadmap & Future Work
- Full VirusTotal API integration & incremental updates
+# Run unit tests
+pytest
 
- Bulk dataset builder (.csv export) for advanced ML training
+# Format & lint (locally)
+black src tests
+flake8 src tests
+Roadmap & Future Work
+Full VirusTotal and OTX enrichment
 
- Online incremental learning pipeline for automatic model refresh
+Bulk dataset exporter for advanced ML training
 
- Browser-extension proof-of-concept for in-page warnings
+Incremental online learning for model refresh
 
- Vision-based screenshot OCR & UI similarity detection
+Browser-extension prototype for in-page warnings
 
- Web dashboard & PDF export for SOC reporting
+Screenshot OCR hashing for UI-similarity detection
 
-🙏 Acknowledgements
+Web dashboard & PDF reporting
+
+Acknowledgements
 Verizon DBIR 2024 for phishing statistics
 
-Open-source threat-intel APIs: VirusTotal, URLScan.io, Shodan, OTX, IPInfo
+Open-source APIs: VirusTotal, URLScan.io, Shodan, OTX, IPInfo
 
-📜 License
+License
 MIT © 2025 Sparsh M. Jain
+
+
+
