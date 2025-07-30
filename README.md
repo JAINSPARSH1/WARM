@@ -124,7 +124,7 @@ TIMEOUTS, HEADERS, API KEYS
 Adjust these to calibrate scoring and model behavior.
 
 Project Structure
-arduino
+
 
 
 WARM/
